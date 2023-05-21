@@ -1,11 +1,13 @@
-const WebSocket = require('ws');
-const chalk = require('chalk');
-const { log, error } = require('./log');
+import WebSocket, { WebSocketServer } from 'ws';
+import chalk from 'chalk';
+import { log, error } from './log.js';
+import { readJson } from './json.js';
 
 /**
  * The JSON Schema validator
  */
-const Ajv = require('ajv');
+import Ajv from 'ajv';
+import {scenarioSchema} from '../schemas.js';
 const jsonSchemaValidator = new Ajv();
 
 /**
@@ -16,7 +18,7 @@ const serverConfig = {
   path: '/v2/ipc'
 };
 
-class CastDeviceEmulator {
+export class CastDeviceEmulator {
   constructor(options = {}) {
     this.options = options;
 
@@ -41,9 +43,12 @@ class CastDeviceEmulator {
    * Load the specific scenario file
    */
   loadScenario(scenarioFile) {
-    if (!jsonSchemaValidator.validate(require('../schemas/scenario.json'), scenarioFile)) {
-      throw new Error('Invalid scenario schema!');
+    const validate = jsonSchemaValidator.compile(scenarioSchema);
+
+    if (!validate(scenarioFile)) {
+      throw new Error('Invalid scenario schema!', { cause: JSON.stringify(validate.errors) });
     }
+
     this.recordedMessages = scenarioFile.timeline;
   }
 
@@ -51,7 +56,7 @@ class CastDeviceEmulator {
    * Startup the emulator
    */
   start(callback) {
-    this.wss = new WebSocket.Server(
+    this.wss = new WebSocketServer(
       {
         port: serverConfig.port,
         path: serverConfig.path
@@ -84,14 +89,17 @@ class CastDeviceEmulator {
    */
   close(callback) {
     if (!this.wss) {
-      log('There is no websocket existing.');
       return;
     }
+
     this.wss.close(() => {
       if (!this.options.silent) {
         log('Chromecast Device Emulator is closed.');
       }
-      if (callback) callback();
+
+      if (callback) {
+        callback();
+      } 
     });
   }
 
@@ -104,6 +112,7 @@ class CastDeviceEmulator {
      * Listen to message events on each socket connection
      */
     ws.on('message', this._webSocketMessageHandler);
+
     /**
      * Iterate over the recorded messages
      * and set a triggering timer for every single message.
@@ -127,5 +136,3 @@ class CastDeviceEmulator {
     log(chalk.green('<<'), message);
   }
 }
-
-module.exports = CastDeviceEmulator;

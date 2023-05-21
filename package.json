@@ -3,44 +3,43 @@
   "version": "1.2.7",
   "description": "Testing your chromecast receiver app, without a real-device needed.",
   "homepage": "https://github.com/ajhsu/chromecast-device-emulator#readme",
+  "type": "module",
   "bugs": {
     "url": "https://github.com/ajhsu/chromecast-device-emulator/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ajhsu/chromecast-device-emulator.git"
+    "url": "git+https://github.com/yuriteixeira/chromecast-device-emulator.git"
   },
   "license": "MIT",
-  "author": "AJ Hsu <im.ajhsu@gmail.com>",
+  "author": "AJ Hsu <im.ajhsu@gmail.com>, Yuri Teixeira <oyuriteixeira at g mail dot com>",
   "main": "dist/index.js",
   "bin": {
     "chromecast-device-emulator": "./dist/cli/index.js",
     "cde": "./dist/cli/index.js"
   },
   "scripts": {
-    "build": "babel src --ignore receiver-utils --out-dir dist",
-    "build:receiver-utils": "NODE_ENV=production browserify --transform babelify src/receiver-utils/index.js --outfile dist/receiver-utils.min.js",
-    "pretest": "npm run build",
-    "test": "mocha \"dist/**/*.spec.js\""
+    "build:emulator": "babel src --ignore receiver-utils --out-dir dist",
+    "build:utils": "browserify src/receiver-utils/index.js --outfile dist/receiver-utils.min.js",
+    "test": "mocha \"src/**/*.spec.js\""
   },
   "dependencies": {
-    "ajv": "^4.11.8",
-    "chalk": "^2.4.1",
-    "commander": "^2.15.1",
-    "ws": "^5.2.0"
+    "ajv": "^8.12.0",
+    "chalk": "^5.2.0",
+    "commander": "^10.0.1",
+    "ws": "^8.13.0"
   },
   "devDependencies": {
-    "babel-cli": "^6.26.0",
-    "babel-core": "^6.26.3",
+    "@babel/cli": "^7.21.5",
+    "@babel/core": "^7.21.8",
+    "@babel/preset-env": "^7.21.5",
     "babel-plugin-transform-node-env-inline": "^0.4.3",
-    "babel-preset-env": "^1.7.0",
-    "babel-preset-minify": "^0.4.3",
-    "babelify": "^8.0.0",
-    "browserify": "^16.2.2",
-    "chai": "^3.5.0",
-    "mocha": "^3.5.3"
+    "babelify": "^10.0.0",
+    "browserify": "^17.0.0",
+    "chai": "^4.3.7",
+    "mocha": "^10.2.0"
   },
   "engines": {
-    "node": ">= 6.9.0"
+    "node": ">= 18"
   }
 }

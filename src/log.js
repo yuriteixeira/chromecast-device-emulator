@@ -1,17 +1,12 @@
-function log(...params) {
+export function log(...params) {
   console.log('chromecast-device-emulator:', ...params);
 }
 
-function warn(...params) {
+export function warn(...params) {
   console.warn('chromecast-device-emulator:', ...params);
 }
 
-function error(...params) {
+export function error(...params) {
   console.error('chromecast-device-emulator:', ...params);
 }
 
-module.exports = {
-  log,
-  warn,
-  error
-};

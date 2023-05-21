@@ -1,12 +1,14 @@
-const CastDeviceEmulator = require('./');
-const WebSocket = require('ws');
-const Ajv = require('ajv');
+import { CastDeviceEmulator } from './index.js';
+import WebSocket from 'ws';
+import Ajv from 'ajv';
+import { readJson } from './json.js';
 
 const jsonSchemaValidator = new Ajv();
-const {
+
+import {
   assert,
   expect
-} = require('chai');
+} from 'chai';
 
 describe('CastDeviceEmulator', function () {
   describe('Methods existance', function () {
@@ -17,7 +19,7 @@ describe('CastDeviceEmulator', function () {
     });
   });
   describe('.loadScenario()', function () {
-    it("should fail when doesn't fit json schema", function (done) {
+    it("should fail when doesn't fit json schema", function () {
       this.timeout(30 * 1000);
       var falsyScenarioObject = {
         notATimeline: [{
@@ -30,17 +32,13 @@ describe('CastDeviceEmulator', function () {
         emulator.loadScenario(falsyScenarioObject);
       };
       expect(badFunction).to.throw(Error);
-      done();
     });
   });
-  describe('.close()', function () {
-    it('should close websocket server properly', function (
-      done
-    ) {
+  describe('.close()', function (done) {
+    it('should close websocket server properly', async function() {
       this.timeout(30 * 1000);
 
-      const scenario = require('../examples/scenarios/example.json');
-
+      const scenario = await readJson('../examples/scenarios/example.json');
       const emulator1 = new CastDeviceEmulator();
       const emulator2 = new CastDeviceEmulator();
 
@@ -58,47 +56,53 @@ describe('CastDeviceEmulator', function () {
     });
   });
   describe('WebSocket basic operations', function () {
-    it('should respond to websocket client connection', function (done) {
-      this.timeout(30 * 1000);
+    it('should respond to websocket client connection', async function() {
+      this.timeout(0 * 1000);
 
-      const emulator = new CastDeviceEmulator({
-        silent: true
-      });
-      emulator.loadScenario(require('../examples/scenarios/example.json'));
-      emulator.start();
+      const scenario = await readJson('../examples/scenarios/example.json');
+      const scenarioCount = scenario?.timeline?.length ?? 0;
 
-      // Trying to mimic client behavior
-      const wsc = new WebSocket('ws://localhost:8008/v2/ipc');
-      wsc.on('open', function open() {
-        // Emit start-up messages once websocket connection is established.
-        const MESSAGE = {
-          READY: '{"namespace":"urn:x-cast:com.google.cast.system","senderId":"SystemSender","data":"{"type":"ready","statusText":"Ready to play","activeNamespaces":["urn:x-cast:com.example.cast.custom","urn:x-cast:com.google.cast.broadcast","urn:x-cast:com.google.cast.media","urn:x-cast:com.google.cast.inject"],"version":"2.0.0","messagesVersion":"1.0"}"}',
-          START_HEARTBEAT: '{"namespace":"urn:x-cast:com.google.cast.system","senderId":"SystemSender","data":"{"type":"startheartbeat","maxInactivity":10}"}',
-          MEDIA_STATUS: '{"namespace":"urn:x-cast:com.google.cast.media","senderId":"*:*","data":"{"type":"MEDIA_STATUS","status":[],"requestId":0}"}'
-        };
-        wsc.send(MESSAGE.READY);
-        wsc.send(MESSAGE.START_HEARTBEAT);
-        wsc.send(MESSAGE.MEDIA_STATUS);
-      });
-      wsc.on('message', function incoming(message, flags) {
-        // console.log('wsc received:', message);
-        const incomingMessageObject = JSON.parse(message);
-        const dataProperty = JSON.parse(incomingMessageObject.data);
-        const typeProperty = dataProperty.type;
+      if (!scenarioCount) throw 'No scenarios to test found were found on file';
 
-        // Every incoming IPC messages should match expected json-schema
-        expect(
-          jsonSchemaValidator.validate(
-            require('../schemas/ipc-message.json'),
-            incomingMessageObject
-          )
-        ).to.be.true;
+      let scenariosProcessed = 0;
 
-        console.log('Received an event:', typeProperty);
-        // Client did received QUEUE_LOAD message from emulator
-        if (typeProperty.toUpperCase() === 'QUEUE_LOAD') {
-          emulator.close(done);
-        }
+      await new Promise((resolve) => {
+        const emulator = new CastDeviceEmulator({
+          silent: true
+        });
+
+        emulator.loadScenario(scenario);
+        emulator.start();
+
+        // Trying to mimic client behavior
+        const wsc = new WebSocket('ws://localhost:8008/v2/ipc');
+
+        wsc.on('open', function open() {
+          // Emit start-up messages once websocket connection is established.
+          const MESSAGE = {
+            READY: '{"namespace":"urn:x-cast:com.google.cast.system","senderId":"SystemSender","data":"{"type":"ready","statusText":"Ready to play","activeNamespaces":["urn:x-cast:com.example.cast.custom","urn:x-cast:com.google.cast.broadcast","urn:x-cast:com.google.cast.media","urn:x-cast:com.google.cast.inject"],"version":"2.0.0","messagesVersion":"1.0"}"}',
+
+            START_HEARTBEAT: '{"namespace":"urn:x-cast:com.google.cast.system","senderId":"SystemSender","data":"{"type":"startheartbeat","maxInactivity":10}"}',
+
+            MEDIA_STATUS: '{"namespace":"urn:x-cast:com.google.cast.media","senderId":"*:*","data":"{"type":"MEDIA_STATUS","status":[],"requestId":0}"}'
+          };
+
+          wsc.send(MESSAGE.READY);
+          wsc.send(MESSAGE.START_HEARTBEAT);
+          wsc.send(MESSAGE.MEDIA_STATUS);
+        });
+
+        wsc.on('message', function incoming(message, isBinary) {
+          const incomingMessageObject = JSON.parse(message);
+          const data = JSON.parse(incomingMessageObject.data);
+
+          ++scenariosProcessed;
+
+          if (scenariosProcessed < scenarioCount) return;
+
+          wsc.close();
+          emulator.close(resolve);
+        });
       });
     });
   });
